@@ -30,14 +30,14 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
 2.  **Crie uma pasta para o projeto:**
     ```bash
-    mkdir -p data-engineering-pyspark/src
+    mkdir -p data-eng-pyspark-udf/src
     mkdir -p /tmp/data/input
     mkdir -p /tmp/data/output
     
     ```
     
     ```bash
-    cd data-engineering-pyspark
+    cd data-eng-pyspark-udf
     
     ```
 
@@ -82,7 +82,7 @@ UDFs permitem a aplicação de funções personalizadas em colunas de um DataFra
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
-from pyspark.sql.types import IntegerType, StructType, Fieldtype, StringType, DateType, ArrayType
+from pyspark.sql.types import IntegerType, StructType, StructField, StringType, DateType, ArrayType, LongType
 
 # Criando uma sessão do Spark
 spark = SparkSession.builder \
@@ -99,7 +99,7 @@ schema_clientes = StructType([
 ])
 
 print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
-clientes_df = spark.read.option("compression", "gzip").json("data/input/clientes.gz", schema=schema_clientes)
+clientes_df = spark.read.option("compression", "gzip").json("/tmp/data/input/clientes.gz", schema=schema_clientes)
 
 clientes_df.show(20, truncate=False)
 
