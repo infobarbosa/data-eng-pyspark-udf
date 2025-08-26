@@ -11,10 +11,66 @@
 
 ---
 
-## Ambiente de laboratório
-Este curso foi desenvolvido para execução principalmente em ambiente **Linux**.<br>
-Caso você não tenha um à disposição então recomendo utilizar o AWS Cloud9.<br>
-As instruções de criação estão [aqui](https://github.com/infobarbosa/data-engineering-cloud9).
+### Configuração Inicial
+
+Antes de começar, prepare seu ambiente:
+
+ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.com/infobarbosa/data-engineering-cloud9]).
+
+1. **Instale o Java 17:**
+  ```bash
+  sudo apt upgrade -y && sudo apt update -y
+
+  ```
+
+  ```bash
+  sudo apt install -y openjdk-17-jdk
+
+  ```
+
+2.  **Crie uma pasta para o projeto:**
+    ```bash
+    mkdir -p data-engineering-pyspark/src
+    mkdir -p /tmp/data/input
+    mkdir -p /tmp/data/output
+    
+    ```
+    
+    ```bash
+    cd data-engineering-pyspark
+    
+    ```
+
+3.  **Crie um ambiente virtual e instale as dependências:**
+    ```bash
+    python3 -m venv .venv
+    
+    ```
+
+    ```bash
+    source .venv/bin/activate
+    
+    ```
+
+    ```bash
+    pip install pyspark
+    
+    ```
+
+4.  **Baixe os datasets:**
+    Execute o script para baixar os dados necessários para a pasta `data/`.
+    
+    **Clientes**
+    ```bash
+    curl -L -o /tmp/data/input/clientes.gz https://raw.githubusercontent.com/infobarbosa/dataset-json-clientes/main/data/clientes.json.gz
+    
+    ```
+
+    Um olhada rápida no arquivo de clientes
+    ```bash
+    gunzip -c /tmp/data/input/clientes.gz | head -n 5
+
+    ```
 
 ---
 
@@ -26,18 +82,26 @@ UDFs permitem a aplicação de funções personalizadas em colunas de um DataFra
 ```python
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
+from pyspark.sql.types import IntegerType, StructType, Fieldtype, StringType, DateType, ArrayType
 
 # Criando uma sessão do Spark
 spark = SparkSession.builder \
-    .appName("DataFrames Lab") \
+    .appName("data-eng-udf-lab") \
     .getOrCreate()
 
-# Exemplo de criação de DataFrame para teste
-data = [('Barbosa', 7300), ('Roberto', 3650), ( 'Charles', 1825), ('Leandro', 912), ('Evanildo', 14056), ('Francisco', 2103)]
-columns = ["nome", "idade_em_dias"]
-df = spark.createDataFrame(data, columns)
-df.show()
-from pyspark.sql.types import IntegerType
+schema_clientes = StructType([
+    StructField("id", LongType(), True),
+    StructField("nome", StringType(), True),
+    StructField("data_nasc", DateType(), True),
+    StructField("cpf", StringType(), True),
+    StructField("email", StringType(), True),
+    StructField("interesses", ArrayType(StringType()), True)
+])
+
+print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
+clientes_df = spark.read.option("compression", "gzip").json("data/input/clientes.gz", schema=schema_clientes)
+
+clientes_df.show(20, truncate=False)
 
 # Definindo uma UDF para calcular a idade em anos
 @udf(IntegerType())
@@ -45,8 +109,8 @@ def calcular_idade_em_anos(idade_em_dias):
     return idade_em_dias // 365
 
 # Aplicando a UDF em uma coluna do DataFrame
-df = df.withColumn("idade_em_anos", calcular_idade_em_anos(df["idade_em_dias"]))
-df.show()
+clientes_df = clientes_df.withColumn("idade_em_anos", calcular_idade_em_anos(df["idade_em_dias"]))
+clientes_df.show(20, truncate=False)
 
 ```
 
