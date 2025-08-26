@@ -80,9 +80,11 @@ UDFs permitem a aplicação de funções personalizadas em colunas de um DataFra
 
 **Exemplo de código:**
 ```python
+from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import IntegerType, StructType, StructField, StringType, DateType, ArrayType, LongType
+
 
 # Criando uma sessão do Spark
 spark = SparkSession.builder \
@@ -105,11 +107,14 @@ clientes_df.show(20, truncate=False)
 
 # Definindo uma UDF para calcular a idade em anos
 @udf(IntegerType())
-def calcular_idade_em_anos(idade_em_dias):
-    return idade_em_dias // 365
+def calcular_idade(data_nasc: DateType):
+
+    data_atual = datetime.now().date()
+    idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
+    return idade
 
 # Aplicando a UDF em uma coluna do DataFrame
-clientes_df = clientes_df.withColumn("idade_em_anos", calcular_idade_em_anos(df["idade_em_dias"]))
+clientes_df = clientes_df.withColumn("idade", calcular_idade(clientes_df["data_nasc"]))
 clientes_df.show(20, truncate=False)
 
 ```
