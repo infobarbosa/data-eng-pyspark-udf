@@ -28,7 +28,7 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
   ```
 
-2.  **Crie uma pasta para o projeto:**
+2. **Crie uma pasta para o projeto:**
     ```bash
     mkdir -p data-eng-pyspark-udf/src
     mkdir -p /tmp/data/input
@@ -41,7 +41,7 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
     
     ```
 
-3.  **Crie um ambiente virtual e instale as dependências:**
+3. **Crie um ambiente virtual e instale as dependências:**
     ```bash
     python3 -m venv .venv
     
@@ -57,7 +57,7 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
     
     ```
 
-4.  **Baixe os datasets:**
+4. **Baixe os datasets:**
     Execute o script para baixar os dados necessários para a pasta `data/`.
     
     **Clientes**
@@ -72,433 +72,160 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
     ```
 
+5. Configure o log:
+  - Crie o arquivo `log4j2.properties`:
+    ```bash
+    touch log4j2.properties
+
+    ```
+
+  - Adicione o seguinte conteúdo ao arquivo `log4j2.properties`:
+    
+    ```
+    # Define o status do logger interno do Log4j2
+    status = debug# Define o appender de arquivo
+    appender.file.type = File
+    appender.file.name = file
+    appender.file.fileName = pyspark-udf-lab.log
+    appender.file.layout.type = PatternLayout
+    appender.file.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
+
+    # Adiciona o appender de arquivo ao logger raiz
+    rootLogger.appenderRef.file.ref = file
+
+    # Define o nome da configuração
+    name = PySparkLogConfig
+
+    # Configura o appender do console
+    appender.console.type = Console
+    appender.console.name = stderr
+    appender.console.target = SYSTEM_ERR
+    appender.console.layout.type = PatternLayout
+    appender.console.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
+
+    # Configura o logger raiz
+    rootLogger.level = debug
+    rootLogger.appenderRef.stdout.ref = stderr
+
+    # AQUI ESTÁ A MÁGICA:
+    # Sobrescrevemos o nível de log para a classe que de fato executa a UDF.
+    logger.PythonUDFRunner.name = org.apache.spark.sql.execution.python
+    logger.PythonUDFRunner.level = trace
+    logger.PythonUDFRunner.additivity = false
+    logger.PythonUDFRunner.appenderRef.stderr.ref = stderr
+
+    ```
+
 ---
 
 ## 1. Introdução
 
 UDFs permitem a aplicação de funções personalizadas em colunas de um DataFrame. Elas são úteis para operações complexas que não são diretamente suportadas pelas funções nativas do Spark.
 
-**Exemplo de código:**
-```python
-from datetime import datetime
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import udf
-from pyspark.sql.types import IntegerType, StructType, StructField, StringType, DateType, ArrayType, LongType
-
-
-# Criando uma sessão do Spark
-spark = SparkSession.builder \
-    .appName("data-eng-udf-lab") \
-    .getOrCreate()
-
-schema_clientes = StructType([
-    StructField("id", LongType(), True),
-    StructField("nome", StringType(), True),
-    StructField("data_nasc", DateType(), True),
-    StructField("cpf", StringType(), True),
-    StructField("email", StringType(), True),
-    StructField("interesses", ArrayType(StringType()), True)
-])
-
-print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
-clientes_df = spark.read.option("compression", "gzip").json("/tmp/data/input/clientes.gz", schema=schema_clientes)
-
-clientes_df.show(20, truncate=False)
-
-# Definindo uma UDF para calcular a idade em anos
-@udf(IntegerType())
-def calcular_idade(data_nasc: DateType):
-
-    data_atual = datetime.now().date()
-    idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
-    return idade
-
-# Aplicando a UDF em uma coluna do DataFrame
-clientes_df = clientes_df.withColumn("idade", calcular_idade(clientes_df["data_nasc"]))
-clientes_df.show(20, truncate=False)
-
-```
-
-## 3. Desafio 1
-
-**Desafio PySpark - Uso de UDF (User Defined Function)**
-
-Crie uma UDF que, dado o nome de uma pessoa e sua data de nascimento, retorne uma saudação personalizada informando a idade atual da pessoa. Adicione essa saudação como uma nova coluna no DataFrame.
-
-**Código inicial:**
-
-```python
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StringType
-from pyspark.sql.functions import udf
-
-# Inicializando a sessão Spark
-spark = SparkSession.builder.appName("DesafioUDF").getOrCreate()
-
-# Criando um DataFrame de exemplo
-data = [
-    ("Barbosa", "1990-05-14"),
-    ("Roberto", "1985-07-23"),
-    ("Charles", "1992-12-02"),
-    ("Leandro", "1988-03-08"),
-    ("Evanildo", "1995-10-30"),
-    ("Francisco", "1991-08-19"),
-    ("Graciane", "1987-01-11"),
-    ("Heidson", "1993-11-29"),
-    ("Ivan", "1989-06-05"),
-    ("Judite", "1994-09-17")
-]
-
-columns = ["nome", "data_nascimento"]
-df = spark.createDataFrame(data, columns)
-
-# Seu código aqui para definir e aplicar a UDF
-
-# Exibindo o DataFrame resultante
-df.show(truncate=False)
-```
-
-**Instruções:**
-
-- Implemente uma UDF que calcule a idade da pessoa com base na data de nascimento.
-- A UDF deve retornar uma saudação no formato: `"Olá, {nome}! Você tem {idade} anos."`
-- Adicione essa saudação como uma nova coluna chamada `"saudacao"` no DataFrame.
-- Considere a data atual como `"2023-10-01"` para o cálculo da idade.
-
-**Exemplo de saída esperada:**
-
-```
-+----------+---------------+--------------------------------------+
-|nome      |data_nascimento|saudacao                              |
-+----------+---------------+--------------------------------------+
-|Barbosa   |1990-05-14     |Olá, Barbosa! Você tem 33 anos.       |
-|Roberto   |1985-07-23     |Olá, Roberto! Você tem 38 anos.       |
-|Charles   |1992-12-02     |Olá, Charles! Você tem 30 anos.       |
-|Leandro   |1988-03-08     |Olá, Leandro! Você tem 35 anos.       |
-|Evanildo  |1995-10-30     |Olá, Evanildo! Você tem 27 anos.      |
-|Francisco |1991-08-19     |Olá, Francisco! Você tem 32 anos.     |
-|Graciane  |1987-01-11     |Olá, Graciane! Você tem 36 anos.      |
-|Heidson   |1993-11-29     |Olá, Heidson! Você tem 29 anos.       |
-|Ivan      |1989-06-05     |Olá, Ivan! Você tem 34 anos.          |
-|Judite    |1994-09-17     |Olá, Judite! Você tem 29 anos.        |
-+----------+---------------+--------------------------------------+
-
-```
-
-**Dica:** Você pode usar bibliotecas padrão do Python dentro da UDF para auxiliar no cálculo da idade.
-
-**Observação:** Certifique-se de que todas as importações necessárias estejam presentes e que o código seja executado sem erros.
-
-#### Solução 1 do desafio
-<details>
-  <summary>Clique aqui</summary>
-
-**Solução do Desafio PySpark - Uso de UDF**
-
-Vamos implementar a UDF que calcula a idade e retorna a saudação personalizada conforme solicitado.
-
-**Código completo:**
-
-```python
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StringType, IntegerType
-from pyspark.sql.functions import udf
-from datetime import datetime
-
-# Inicializando a sessão Spark
-spark = SparkSession.builder.appName("DesafioUDF").getOrCreate()
-
-# Criando um DataFrame de exemplo
-data = [
-    ("Barbosa", "1990-05-14"),
-    ("Roberto", "1985-07-23"),
-    ("Charles", "1992-12-02"),
-    ("Leandro", "1988-03-08"),
-    ("Evanildo", "1995-10-30"),
-    ("Francisco", "1991-08-19"),
-    ("Graciane", "1987-01-11"),
-    ("Heidson", "1993-11-29"),
-    ("Ivan", "1989-06-05"),
-    ("Judite", "1994-09-17")
-]
-
-columns = ["nome", "data_nascimento"]
-df = spark.createDataFrame(data, columns)
-
-# Definindo a UDF para calcular a idade e criar a saudação
-def saudacao_personalizada(nome, data_nascimento):
-    # Convertendo a data de nascimento para um objeto datetime
-    data_nasc = datetime.strptime(data_nascimento, "%Y-%m-%d")
-    # Obtendo a data atual
-    data_atual = datetime.now().date()
-    # Calculando a idade
-    idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
-    # Criando a saudação
-    saudacao = f"Olá, {nome}! Você tem {idade} anos."
-    return saudacao
-
-# Registrando a UDF
-saudacao_udf = udf(saudacao_personalizada, StringType())
-
-# Aplicando a UDF ao DataFrame
-df = df.withColumn("saudacao", saudacao_udf(df.nome, df.data_nascimento))
-
-# Exibindo o DataFrame resultante
-df.show(truncate=False)
-```
-
-**Explicação do Código:**
-
-1. **Importações Necessárias:**
-- `SparkSession` para iniciar a sessão Spark.
-- `StringType` e `IntegerType` para definir os tipos de dados.
-- `udf` para criar a função definida pelo usuário.
-- `datetime` para manipular datas e calcular a idade.
-
-2. **Inicializando a Sessão Spark:**
-- Criamos uma sessão Spark com o nome `"DesafioUDF"`.
-
-3. **Criando o DataFrame de Exemplo:**
-- Utilizamos os dados fornecidos e definimos as colunas `"nome"` e `"data_nascimento"`.
-
-4. **Definindo a UDF `saudacao_personalizada`:**
-- A função recebe o `nome` e a `data_nascimento` como parâmetros.
-- Converte a `data_nascimento` de `string` para um objeto `datetime`.
-- Define a `data_atual` como `"2023-10-01"` e converte para um objeto `datetime`.
-- Calcula a `idade` considerando se a pessoa já fez aniversário no ano atual.
-- Retorna a saudação personalizada no formato desejado.
-
-5. **Registrando a UDF:**
-- Utilizamos `udf()` para registrar a função `saudacao_personalizada` como uma UDF do Spark, especificando que o tipo de retorno é `StringType()`.
-
-6. **Aplicando a UDF ao DataFrame:**
-- Usamos `withColumn()` para adicionar uma nova coluna `"saudacao"` ao DataFrame, aplicando a UDF aos campos `"nome"` e `"data_nascimento"`.
-
-7. **Exibindo o DataFrame Resultante:**
-- Utilizamos `df.show(truncate=False)` para mostrar o DataFrame completo sem truncar as colunas.
-
-**Saída Esperada:**
-
-```
-+----------+---------------+--------------------------------------+
-|nome      |data_nascimento|saudacao                              |
-+----------+---------------+--------------------------------------+
-|Barbosa   |1990-05-14     |Olá, Barbosa! Você tem 33 anos.       |
-|Roberto   |1985-07-23     |Olá, Roberto! Você tem 38 anos.       |
-|Charles   |1992-12-02     |Olá, Charles! Você tem 30 anos.       |
-|Leandro   |1988-03-08     |Olá, Leandro! Você tem 35 anos.       |
-|Evanildo  |1995-10-30     |Olá, Evanildo! Você tem 27 anos.      |
-|Francisco |1991-08-19     |Olá, Francisco! Você tem 32 anos.     |
-|Graciane  |1987-01-11     |Olá, Graciane! Você tem 36 anos.      |
-|Heidson   |1993-11-29     |Olá, Heidson! Você tem 29 anos.       |
-|Ivan      |1989-06-05     |Olá, Ivan! Você tem 34 anos.          |
-|Judite    |1994-09-17     |Olá, Judite! Você tem 29 anos.        |
-+----------+---------------+--------------------------------------+
-```
-
-**Notas Adicionais:**
-
-- **Cálculo da Idade:**
-- A idade é calculada subtraindo o ano de nascimento do ano atual.
-- O ajuste `- ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))` considera se a pessoa já fez aniversário no ano atual.
-
-- **Uso de UDF:**
-- As UDFs em PySpark permitem utilizar funções Python em operações de DataFrame do Spark.
-- É importante especificar o tipo de retorno da UDF para que o Spark possa otimizar o processamento.
-
-- **Performance:**
-- Embora as UDFs sejam úteis, elas podem impactar a performance, pois quebram a otimização baseada em JVM do Spark.
-- Para operações em larga escala, considere usar funções embutidas do Spark ou expressões SQL quando possível.
-
-**Executando o Código:**
-
-Certifique-se de que você tem o PySpark instalado e configurado corretamente no seu ambiente. Salve o código em um arquivo, por exemplo, `desafio_udf.py`, e execute com o comando:
-
-```bash
-spark-submit desafio_udf.py
-
-```
-
-Ou execute diretamente em um notebook ou ambiente interativo que suporte PySpark.  
-
-</details>
-
-#### Solução 2 do desafio
-<details>
-  <summary>Clique aqui</summary>
-
-**Solução 2 do Desafio PySpark - Anotação `@udf`**
-
-Vamos implementar a UDF que calcula a idade e retorna a saudação personalizada, desta vez utilizando a anotação `@udf` do PySpark.
-
-**Código completo:**
-
-```python
-from pyspark.sql import SparkSession
-from pyspark.sql.types import StringType, IntegerType
-from pyspark.sql.functions import udf
-from datetime import datetime
-
-# Inicializando a sessão Spark
-spark = SparkSession.builder.appName("DesafioUDF").getOrCreate()
-
-# Criando um DataFrame de exemplo
-data = [
-    ("Barbosa", "1990-05-14"),
-    ("Roberto", "1985-07-23"),
-    ("Charles", "1992-12-02"),
-    ("Leandro", "1988-03-08"),
-    ("Evanildo", "1995-10-30"),
-    ("Francisco", "1991-08-19"),
-    ("Graciane", "1987-01-11"),
-    ("Heidson", "1993-11-29"),
-    ("Ivan", "1989-06-05"),
-    ("Judite", "1994-09-17")
-]
-
-columns = ["nome", "data_nascimento"]
-df = spark.createDataFrame(data, columns)
-
-# Definindo a UDF para calcular a idade e criar a saudação
-@udf(StringType())
-def saudacao_personalizada(nome, data_nascimento):
-    # Convertendo a data de nascimento para um objeto datetime
-    data_nasc = datetime.strptime(data_nascimento, "%Y-%m-%d")
-    # Obtendo a data atual
-    data_atual = datetime.now().date()
-    # Calculando a idade
-    idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
-    # Criando a saudação
-    saudacao = f"Olá, {nome}! Você tem {idade} anos."
-    return saudacao
-
-# Aplicando a UDF ao DataFrame
-df = df.withColumn("saudacao", saudacao_personalizada(df.nome, df.data_nascimento))
-
-# Exibindo o DataFrame resultante
-df.show(truncate=False)
-
-```
-
-</details>
-
-#### Solução 3 do desafio
-<details>
-  <summary>Clique aqui</summary>
-
-**Solução 3 do Desafio PySpark - Pandas UDF**
-
-Vamos implementar o calculo da idade e retornar a saudação personalizada, desta vez com Pandas UDF.
-
-**Código completo:**
-
-```python
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import pandas_udf
-from pyspark.sql.types import StringType
-import pandas as pd
-from datetime import datetime
-
-# Inicializando a sessão Spark
-spark = SparkSession.builder.appName("DesafioPandasUDF").getOrCreate()
-
-# Criando um DataFrame de exemplo
-data = [
-    ("Barbosa", "1990-05-14"),
-    ("Roberto", "1985-07-23"),
-    ("Charles", "1992-12-02"),
-    ("Leandro", "1988-03-08"),
-    ("Evanildo", "1995-10-30"),
-    ("Francisco", "1991-08-19"),
-    ("Graciane", "1987-01-11"),
-    ("Heidson", "1993-11-29"),
-    ("Ivan", "1989-06-05"),
-    ("Judite", "1994-09-17")
-]
-
-columns = ["nome", "data_nascimento"]
-df = spark.createDataFrame(data, columns)
-
-# Definindo a Pandas UDF corrigida
-@pandas_udf(StringType())
-def saudacao_personalizada(nome: pd.Series, data_nascimento: pd.Series) -> pd.Series:
-    data_nasc = pd.to_datetime(data_nascimento)
-    data_atual = pd.to_datetime(datetime.now().date())
-
-    # Cálculo da idade base
-    idade = data_atual.year - data_nasc.dt.year
-
-    # Ajuste caso o aniversário ainda não tenha ocorrido este ano
-    aniversarios_ja_ocorreram = (
-        (data_nasc.dt.month < data_atual.month) |
-        ((data_nasc.dt.month == data_atual.month) & (data_nasc.dt.day <= data_atual.day))
-    )
-    idade_ajustada = idade.where(aniversarios_ja_ocorreram, idade - 1)
-
-    return "Olá, " + nome + "! Você tem " + idade_ajustada.astype(str) + " anos."
-
-# Aplicando a Pandas UDF
-df = df.withColumn("saudacao", saudacao_personalizada("nome", "data_nascimento"))
-
-# Exibindo o resultado
-df.show(truncate=False)
-
-
-``` 
-</details>
-
-#### Solução 4 do desafio
-<details>
-  <summary>Clique aqui</summary>
-
-**Solução 4 do Desafio PySpark - Sem uso de UDF**
-
-Vamos implementar o calculo da idade e retornar a saudação personalizada, desta vez sem qualquer uso de UDF.
-
-**Código completo:**
-
-```python
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, expr, concat, lit
-from datetime import datetime
-
-# Inicializando a sessão Spark
-spark = SparkSession.builder.appName("DesafioUDF").getOrCreate()
-
-# Criando um DataFrame de exemplo
-data = [
-    ("Barbosa", "1990-05-14"),
-    ("Roberto", "1985-07-23"),
-    ("Charles", "1992-12-02"),
-    ("Leandro", "1988-03-08"),
-    ("Evanildo", "1995-10-30"),
-    ("Francisco", "1991-08-19"),
-    ("Graciane", "1987-01-11"),
-    ("Heidson", "1993-11-29"),
-    ("Ivan", "1989-06-05"),
-    ("Judite", "1994-09-17")
-]
-
-columns = ["nome", "data_nascimento"]
-df = spark.createDataFrame(data, columns)
-df.show(truncate=False)
-
-# Calculando a idade e criando a saudação sem UDF
-current_date = datetime.now().date()
-df = df.withColumn("idade", expr(f"floor(datediff(current_date(), to_date(data_nascimento, 'yyyy-MM-dd')) / 365)"))
-df = df.withColumn("saudacao", concat(lit("Olá, "), col("nome"), lit("! Você tem "), col("idade"), lit(" anos.")))
-
-# Exibindo o DataFrame resultante
-df.show(truncate=False)
-
-```
-
-</details>
-
+## 2. Laboratório
+  - Crie o arquivo `main.py`
+    ```bash
+    touch main.py
+    
+    ```
+
+  - Adicione o seguinte conteúdo ao arquivo `main.py`:
+
+    ```python
+    from datetime import datetime
+    from pyspark.sql import SparkSession
+    from pyspark.sql.functions import udf, col
+    from pyspark.sql.types import IntegerType, StructType, StructField, StringType, DateType, ArrayType, LongType, BooleanType
+
+    spark = SparkSession.builder \
+        .appName("data-eng-udf-lab") \
+        .getOrCreate()
+
+    schema_clientes = StructType([
+        StructField("id", LongType(), True),
+        StructField("nome", StringType(), True),
+        StructField("data_nasc", DateType(), True),
+        StructField("cpf", StringType(), True),
+        StructField("email", StringType(), True),
+        StructField("interesses", ArrayType(StringType()), True)
+    ])
+
+    print("Abrindo o dataframe de clientes, deixando o Spark inferir o schema")
+    clientes_df = spark.read.option("compression", "gzip").json("/tmp/data/input/clientes.gz", schema=schema_clientes)
+
+    clientes_df.show(20, truncate=False)
+
+    # Definindo uma UDF
+    @udf(IntegerType())
+    def calcular_idade(data_nasc: DateType):
+        data_atual = datetime.now().date()
+        idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
+        return idade
+
+    # Aplicando a UDF
+    clientes_df = clientes_df.withColumn("idade", calcular_idade(clientes_df["data_nasc"]))
+
+    # 1. UDF com a lógica de negócio real.
+    @udf(BooleanType())
+    def eh_maior_que_30(data_nasc: DateType):
+        if not data_nasc:
+            return False
+        data_atual = datetime.now().date()
+        idade = data_atual.year - data_nasc.year - ((data_atual.month, data_atual.day) < (data_nasc.month, data_nasc.day))
+        return idade > 30
+
+    # 2. Adiciona a coluna com o resultado da UDF.
+    clientes_df = clientes_df.withColumn("maior_de_30", eh_maior_que_30(col("data_nasc")))
+
+    # 3. Marca o DataFrame para ser colocado em cache.
+    #    A execução ainda não aconteceu, é uma operação lazy.
+    print("Marcando o DataFrame para cache...")
+    clientes_df.cache()
+
+    # 4. Executa uma ação leve (.count()) para forçar a execução do plano
+    #    e a materialização do DataFrame em cache. Neste ponto, a UDF é
+    #    executada para todas as linhas.
+    print("Forçando a execução e o cache com a ação .count()...")
+    total_clientes = clientes_df.count()
+    print(f"Processamento e cache concluídos. Total de clientes: {total_clientes}")
+
+    clientes_df = clientes_df.filter(col("maior_de_30") == True)
+
+    # 5. Agora o DataFrame está em memória e a UDF já foi executada.
+    #    Qualquer operação subsequente será muito mais rápida.
+    print("Exibindo o DataFrame final a partir do cache:")
+    clientes_df.show(1000, truncate=False)
+
+    print("Parando a SparkSession")
+    spark.stop()
+
+
+    ```
+
+  - Execute a aplicação:
+
+    ```bash
+    spark-submit \
+    --files log4j2.properties \
+    --conf "spark.sql.execution.pythonUDF.arrow.enabled=false" \
+    --conf "spark.driver.extraJavaOptions=-Dlog4j.configurationFile=log4j2.properties" \
+    --conf "spark.executor.extraJavaOptions=-Dlog4j.configurationFile=log4j2.properties" \
+    main.py
+    ```
+
+Os componentes-chave a observarmos nos logs:
+
+   1. Regra de Otimização `ExtractPythonUDFs`: O Spark primeiro aplica esta regra ao plano lógico. Ela identifica a UDF Python e a extrai para uma execução separada.
+   2. Operador Físico `BatchEvalPython`: Após a otimização, o Spark insere este operador no plano físico. Ele é o responsável por:
+       * Serializar os dados do DataFrame da JVM.
+       * Enviá-los para um processo de trabalho Python.
+       * Executar a função Python (sua UDF) nesse processo.
+       * Receber os resultados de volta.
+       * Desserializar os resultados na JVM.
 
 ---
 
-## 4. Desafio 2: Analisando Transações com Potencial de Fraude
+## 4. Laboratório 2: Analisando Transações com Potencial de Fraude
 
 Você recebeu um conjunto de dados de pedidos de uma plataforma de e-commerce que contém informações sobre cada pedido, incluindo seu status e se foi marcado como fraude ou não.
 
