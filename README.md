@@ -122,7 +122,7 @@ ATENÇÃO! Se estiver utilizando Cloud9, utilize esse [tutorial](https://github.
 
 UDFs permitem a aplicação de funções personalizadas em colunas de um DataFrame. Elas são úteis para operações complexas que não são diretamente suportadas pelas funções nativas do Spark.
 
-## 2. Laboratório
+## 2. Laboratório 1
   - Crie o arquivo `main.py`
     ```bash
     touch main.py
@@ -225,7 +225,7 @@ Os componentes-chave a observarmos nos logs:
 
 ---
 
-## 4. Laboratório 2: Analisando Transações com Potencial de Fraude
+## 3. Laboratório 2: Analisando Transações com Potencial de Fraude
 
 Você recebeu um conjunto de dados de pedidos de uma plataforma de e-commerce que contém informações sobre cada pedido, incluindo seu status e se foi marcado como fraude ou não.
 
